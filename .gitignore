@@ -1,0 +1,19 @@
+#logs
+logs
+*.log
+#runtime data
+pids
+*.pid
+*.seed
+
+#dependency directory
+node_modules
+#to not leak env files
+/.history
+.env
+#debug log from npm
+npm-debug.log
+.*.json
+
+.DS_Store
+dist
