@@ -6,6 +6,10 @@ import ValidationError from "../errors/ValidationError";
 import { AuthenticatedRequest } from "../types";
 import NotFoundError from "../errors/NotFoundError";
 import OauthUser from "../models/OauthUser.model";
+import axios from "axios";
+import { platform } from "os";
+import UnauthorizedError from "../errors/UnauthorizedError";
+import PropertyMissingError from "../errors/PropertyMissingError";
 
 const frontendUrl =
   process.env.NODE_ENV === "developments" || !process.env.FRONTEND_URL
@@ -64,24 +68,116 @@ export async function Login(
     next(err);
   }
 }
-
-export async function Logout(
-    req: Request,
-    res: Response,
-    next: NextFunction
+export async function GoogleAccessToken(
+  req: Request<any, { code: string; scope: string; state: string }>,
+  res: Response,
+  next: NextFunction
 ) {
-    try {
-        res.clearCookie('token', { secure: true, httpOnly: true, sameSite: "strict" });
-        res.json({
-            message: 'Logged Out successfully',
-        })
-    } catch (err) {
-        next(err);
+  const { code, scope, state } = req.query;
+  try {
+    const tokenResponse = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${frontendUrl}/auth/google/access-token`,
+        grant_type: "authorization_code",
+      }
+    );
+    const accessToken = tokenResponse.data.access_token;
+    const dataResponse = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const id = dataResponse.data?.sub;
+
+    if (id) {
+      const oauthUser = await OauthUser.findOne({
+        userId: id,
+        platform: "Google",
+      });
+      if (!oauthUser) {
+        const newOauthUser = new OauthUser({
+          userId: id,
+          platform: "Google",
+        });
+        await newOauthUser.save();
+      }
+      res.cookie(
+        "token",
+        JSON.stringify({ value: accessToken, platform: "Google" }),
+        {
+          secure: true,
+          httpOnly: true,
+          sameSite: "strict",
+        }
+      );
     }
+    res.redirect(frontendUrl);
+  } catch (err) {
+    next(err);
+  }
+}
+export async function GoogleFinalSteps(
+  req: Request<any, { username: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  const { username } = req.body;
+  const token = JSON.parse(req.cookies.token || "");
+  try {
+    if (!token?.value) {
+      throw new UnauthorizedError("Authentication Required");
+    }
+    if (!username?.trim().length) {
+      throw new PropertyMissingError("Property `username` wasn't provided!");
+    }
+    const dataResponse = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      { headers: { Authorization: `Bearer ${token.value}` } }
+    );
+    const id = dataResponse.data.sub;
+    if (!id) {
+      throw new UnauthorizedError("Authentication Required");
+    }
+    const oauthUser = await OauthUser.findOne({
+      userId: id,
+      platform: "Google",
+    });
+    if (!oauthUser) {
+      throw new NotFoundError("User not found!");
+    }
+    oauthUser.username = username;
+    await oauthUser.save();
+    const profile = new Profile({ _id: oauthUser._id });
+    await profile.save();
+    res.json({ username });
+  } catch (err) {
+    next(err);
+  }
+}
+export async function Logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.clearCookie("token", {
+      secure: true,
+      httpOnly: true,
+      sameSite: "strict",
+    });
+    res.json({
+      message: "Logged Out successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function ChangeUsername(
-  req: AuthenticatedRequest<any, Response, { password: string; newUsername: string }>,
+  req: AuthenticatedRequest<
+    any,
+    Response,
+    { password: string; newUsername: string }
+  >,
   res: Response,
   next: NextFunction
 ) {
@@ -89,33 +185,37 @@ export async function ChangeUsername(
   const username = req.user!.username;
   try {
     if (!req.user?.platform) {
-      const user = (await User.findOne({ username }));
+      const user = await User.findOne({ username });
       const passwordMatch = await user?.comparePassword(password);
 
       if (!user) {
-        throw new NotFoundError('User Not Found')
+        throw new NotFoundError("User Not Found");
       }
       if (!passwordMatch) {
         throw new ValidationError("Incorrect Password", "password");
       }
-      user.$set('username', newUsername);
+      user.$set("username", newUsername);
       await user.save();
     } else {
       const oauthUser = await OauthUser.findOne({ username });
       if (!oauthUser) {
-        throw new NotFoundError('User Not Found');
+        throw new NotFoundError("User Not Found");
       }
-      oauthUser.$set('username', newUsername);
+      oauthUser.$set("username", newUsername);
       await oauthUser.save();
     }
-    res.json({username: newUsername})
+    res.json({ username: newUsername });
   } catch (err) {
     next(err);
   }
 }
 
 export async function ChangePassword(
-  req: AuthenticatedRequest<any, Response, { oldPassword: string; newPassword: string }>,
+  req: AuthenticatedRequest<
+    any,
+    Response,
+    { oldPassword: string; newPassword: string }
+  >,
   res: Response,
   next: NextFunction
 ) {
@@ -126,17 +226,17 @@ export async function ChangePassword(
   const { oldPassword, newPassword } = req.body;
   const username = req.user!.username;
   try {
-    const user = (await User.findOne({ username }));
+    const user = await User.findOne({ username });
     const passwordMatch = await user?.comparePassword(oldPassword);
     if (!user) {
-      throw new NotFoundError('User Not Found')
+      throw new NotFoundError("User Not Found");
     }
     if (!passwordMatch) {
-      throw new ValidationError('Passwords do not match', 'Password');
+      throw new ValidationError("Passwords do not match", "Password");
     }
     user.password = newPassword;
     user.save();
-    res.json({ message: 'Password changed successfully' });
+    res.json({ message: "Password changed successfully" });
   } catch (err) {
     next(err);
   }
