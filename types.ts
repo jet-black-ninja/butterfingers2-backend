@@ -10,7 +10,7 @@ export interface AuthenticatedRequest<
   Locals extends Record<string, any> = Record<string, any>
 > extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
   user?: {
-    username: string;
+    username: string | undefined;
     platform?: PlatformType;
   };
 }
