@@ -10,6 +10,7 @@ import axios from "axios";
 import { platform } from "os";
 import UnauthorizedError from "../errors/UnauthorizedError";
 import PropertyMissingError from "../errors/PropertyMissingError";
+import InternalServerError from "../errors/InternalServerError";
 
 const frontendUrl =
   process.env.NODE_ENV === "developments" || !process.env.FRONTEND_URL
@@ -148,6 +149,114 @@ export async function GoogleFinalSteps(
     if (!oauthUser) {
       throw new NotFoundError("User not found!");
     }
+    oauthUser.username = username;
+    await oauthUser.save();
+    const profile = new Profile({ _id: oauthUser._id });
+    await profile.save();
+    res.json({ username });
+  } catch (err) {
+    next(err);
+  }
+}
+export async function GitHubAccessToken(
+  req: Request<any, { code: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  const { code } = req.query;
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  try {
+    if (!clientId || !clientSecret) {
+      throw new InternalServerError(
+        "Github `Client id` or `Client Secret` is undefined!"
+      );
+    }
+    if (!code) {
+      throw new PropertyMissingError("Required Property wasn't provided");
+    }
+    axios
+      .post(
+        "https://github.com/login/oauth/access_token",
+        {
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: code,
+        },
+        {
+          headers: { Accept: "application/json" },
+        }
+      )
+      .then(async (oauthResponse) => {
+        const accessToken = oauthResponse.data.access_token;
+        if (!accessToken) {
+          throw new Error();
+        }
+        const { data } = await axios.get("https://api.github.com/user", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const id = data?.id;
+        if (!id) {
+          throw new Error();
+        }
+        const oauthUser = await OauthUser.findOne({
+          userId: id,
+          platform: "GitHub",
+        });
+        if (!oauthUser) {
+          const newOauthUser = new OauthUser({
+            userId: id,
+            platform: "GitHub",
+          });
+          await newOauthUser.save();
+        }
+        res.cookie(
+          'token',
+          JSON.stringify({
+            value: accessToken,
+            platform: 'GitHub',
+          }),
+          {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'strict',
+          }
+        );
+
+        res.redirect(frontendUrl);
+      });
+  } catch (err) {
+    next(err);
+  }
+}
+export async function GitHubFinalSteps(
+  req: AuthenticatedRequest<any, Response, { username: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  const { username } = req.body;
+  const token = JSON.stringify(req.cookies.token || "");
+  try {
+    if (!token.value) {
+      throw new UnauthorizedError("Authentication Required");
+    }
+    if (!username?.trim().length) {
+      throw new PropertyMissingError("Property `username` wasn't provided!")
+    }
+    const { data } = await axios.get('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${token.value}` };
+    });
+    if (!data) {
+      throw new UnauthorizedError('Authentication Required!');
+    }
+    const oauthUser = await OauthUser.findOne({
+      userId: data.id,
+      platform: "GitHub",
+    });
+    if (!oauthUser) {
+      throw new NotFoundError('User Not Found');
+    }
+
     oauthUser.username = username;
     await oauthUser.save();
     const profile = new Profile({ _id: oauthUser._id });
