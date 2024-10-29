@@ -1,18 +1,17 @@
-import mongoose, { mongo } from "mongoose";
-import chalk from "chalk";
+import mongoose from "mongoose";
 
 export default function initializeMongoDb() {
   const mongoDB = `${process.env.MONGO_URI}`;
   mongoose.set("strictQuery", false);
   mongoose.connect(mongoDB);
   const db = mongoose.connection;
-  console.log(chalk.blue("Connected to MongoDB"));
-  db.on("error", console.error.bind(console, "MongoDB connection error"));
+  console.log("Connected to MongoDB".blue);
+  db.on("error", console.error.bind(console, "MongoDB connection error".red));
 
   process.on("SIGHT", () => {
     db.close()
       .then(() => {
-        console.log(chalk.blue("MongoDB connection closed on app termination"));
+        console.log("MongoDB connection closed on app termination".blue);
         process.exit(0);
       })
       .catch((err) => {

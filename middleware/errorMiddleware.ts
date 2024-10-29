@@ -1,24 +1,15 @@
-import { Request, Response, NextFunction } from "express";
+import { ErrorRequestHandler } from "express";
+import CustomError from "../errors/CustomError";
 
-interface Error {
-  name: string;
-  message: string;
-  stack?: string;
-  status: number;
+const error: ErrorRequestHandler = (err, req, res, next) => { 
+  if (process.env.NODE_ENV === 'development') {
+    console.log(err);
+  }
+  if (err instanceof CustomError) {
+    res.status(err.statusCode).json(err.sendToClient);
+  } else {
+    res.status(500).json({ message: 'Something Went Wrong' });
+  }
 }
 
-function errorMiddleware(
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const status = err.status || 500;
-  const message =
-    err.message +
-    (process.env.NODE_ENV === "development" ? `/n${err.stack}` : "");
-  res.status(status).json({
-    message,
-  });
-}
-export default errorMiddleware;
+export default error;

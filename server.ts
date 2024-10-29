@@ -4,8 +4,10 @@ import createError from "http-errors";
 import initializeMongoDb from "./config/mongodb";
 import cors from "cors";
 import path from "path";
-import routes from "./routes";
-import errorMiddleware from "./middleware/errorMiddleware";
+import "colors";
+// import routes from "./routes";
+import error from "./middleware/errorMiddleware";
+import NotFoundError from "./errors/NotFoundError";
 import logger from "morgan";
 import cookieParser from "cookie-parser";
 import * as bodyParser from "body-parser";
@@ -47,15 +49,14 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(helmet());
 //routes
-app.use("/", routes);
+// app.use("/", routes);
 
 //error middleware
-app.use(function (err: Error, req: Request, res: Response, next: NextFunction) {
-  console.log(err.stack);
-  next(createError(404));
+app.all("*", (req: Request, res: Response, next: NextFunction) => {
+  next(new NotFoundError(`Invalid path: ${req.originalUrl}`));
 });
+app.use(error);
 
-app.use(errorMiddleware);
 app.listen(PORT, () => {
-  console.log(chalk.green(`Server is running on port http://localhost:${PORT}`));
+  console.log(`Server is running on port http://localhost:${PORT}`.blue);
 });
