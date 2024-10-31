@@ -7,7 +7,6 @@ import { AuthenticatedRequest } from "../types";
 import NotFoundError from "../errors/NotFoundError";
 import OauthUser from "../models/OauthUser.model";
 import axios from "axios";
-import { platform } from "os";
 import UnauthorizedError from "../errors/UnauthorizedError";
 import PropertyMissingError from "../errors/PropertyMissingError";
 import InternalServerError from "../errors/InternalServerError";
@@ -211,15 +210,15 @@ export async function GitHubAccessToken(
           await newOauthUser.save();
         }
         res.cookie(
-          'token',
+          "token",
           JSON.stringify({
             value: accessToken,
-            platform: 'GitHub',
+            platform: "GitHub",
           }),
           {
             secure: true,
             httpOnly: true,
-            sameSite: 'strict',
+            sameSite: "strict",
           }
         );
 
@@ -235,26 +234,26 @@ export async function GitHubFinalSteps(
   next: NextFunction
 ) {
   const { username } = req.body;
-  const token = JSON.stringify(req.cookies.token || "");
+  const token = JSON.parse(req.cookies.token || "");
   try {
     if (!token.value) {
       throw new UnauthorizedError("Authentication Required");
     }
     if (!username?.trim().length) {
-      throw new PropertyMissingError("Property `username` wasn't provided!")
+      throw new PropertyMissingError("Property `username` wasn't provided!");
     }
-    const { data } = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${token.value}` };
+    const { data } = await axios.get("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${token.value}` },
     });
     if (!data) {
-      throw new UnauthorizedError('Authentication Required!');
+      throw new UnauthorizedError("Authentication Required!");
     }
     const oauthUser = await OauthUser.findOne({
       userId: data.id,
       platform: "GitHub",
     });
     if (!oauthUser) {
-      throw new NotFoundError('User Not Found');
+      throw new NotFoundError("User Not Found");
     }
 
     oauthUser.username = username;
