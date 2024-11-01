@@ -10,13 +10,15 @@ export async function TypingStarted(
   next: NextFunction
 ) {
   const username = req.user!.username;
+
   try {
-    const user = await User.findOne({ username });
+    const user = (await User.findOne({ username }))!;
+
     await Profile.updateOne(
-      { _id: user?._id },
-      { $inc: { "stats.textStarted": 1 } }
+      { _id: user._id },
+      { $inc: { "stats.testsStarted": 1 } }
     );
-    return res.json({ message: "Success" });
+    res.json({ message: "Success!" });
   } catch (err) {
     next(err);
   }
