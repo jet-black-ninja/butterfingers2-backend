@@ -1,6 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import * as dotenv from "dotenv";
-import createError from "http-errors";
 import initializeMongoDb from "./config/mongodb";
 import cors from "cors";
 import path from "path";
@@ -46,6 +45,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(helmet());
+
 //routes
 app.use("/", routes);
 
