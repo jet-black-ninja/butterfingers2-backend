@@ -1,7 +1,7 @@
 import { Router } from "express";
 import authRouter from "./auth.router";
 import typingRouter from "./typing.router";
-import profileRouter from "./profile.route";
+import profileRouter from "./profile.router";
 const routes = Router();
 
 routes.use("/auth", authRouter);

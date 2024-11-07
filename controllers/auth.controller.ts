@@ -39,7 +39,7 @@ export async function CreateAccount(
       httpOnly: true,
       sameSite: "strict",
     });
-    res.json({ username });
+    res.status(200).json({ username });
   } catch (err: any) {
     next(err);
   }
@@ -56,6 +56,7 @@ export async function Login(
     if (!passwordMatch) {
       throw new ValidationError("Incorrect Password", "password");
     }
+
     const jwtSecret = process.env.JWT_SECRET!;
     const token = jwt.sign({ userId: user._id }, jwtSecret);
     res.cookie("token", JSON.stringify({ value: token }), {
