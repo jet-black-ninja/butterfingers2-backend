@@ -18,6 +18,7 @@ export function startSocketOneVersusOne(server: any) {
     console.log("New Connection", socket.id);
 
     socket.on("create-room", (quoteLength: quoteLengthType) => {
+    
       const roomCode = generateCode(6);
       clientRooms[socket.id] = roomCode;
 
@@ -142,31 +143,37 @@ export function startSocketOneVersusOne(server: any) {
             startCountdown(roomCode, io1v1);
           });
       } else {
-          roomState[roomCode].players[player]!.playAgain = true;
-          io1v1.to(state.players[opponentPlayer]!.id).emit('opponent-play-again');
+        roomState[roomCode].players[player]!.playAgain = true;
+        io1v1.to(state.players[opponentPlayer]!.id).emit("opponent-play-again");
       }
     });
-      
-      const handleRoomDisconnect = () => {
-          const roomCode = clientRooms[socket.id];
-          if (!roomCode || !roomState[roomCode]) {
-              return;
-          }
-          delete clientRooms[socket.id];
-          const player = roomState[roomCode].players.player1.id === socket.id ? 'player1' : 'player2';
-          const opponentPlayerState = roomState[roomCode].players[player === 'player1' ? 'player2' : 'player1'];
-          if (!opponentPlayerState || opponentPlayerState?.disconnected) {
-              delete roomState[roomCode];
-          } else {
-              roomState[roomCode].players[player]!.disconnected = true;
-              io1v1.to(opponentPlayerState.id).emit('opponent-disconnected');
-          }
-      };
 
-      socket.on('leave-room', handleRoomDisconnect);
-      socket.on('disconnect', () => {
-          console.log('Disconnected', socket.id);
-          handleRoomDisconnect();
-      });
+    const handleRoomDisconnect = () => {
+      const roomCode = clientRooms[socket.id];
+      if (!roomCode || !roomState[roomCode]) {
+        return;
+      }
+      delete clientRooms[socket.id];
+      const player =
+        roomState[roomCode].players.player1.id === socket.id
+          ? "player1"
+          : "player2";
+      const opponentPlayerState =
+        roomState[roomCode].players[
+          player === "player1" ? "player2" : "player1"
+        ];
+      if (!opponentPlayerState || opponentPlayerState?.disconnected) {
+        delete roomState[roomCode];
+      } else {
+        roomState[roomCode].players[player]!.disconnected = true;
+        io1v1.to(opponentPlayerState.id).emit("opponent-disconnected");
+      }
+    };
+
+    socket.on("leave-room", handleRoomDisconnect);
+    socket.on("disconnect", () => {
+      console.log("Disconnected", socket.id);
+      handleRoomDisconnect();
+    });
   });
 }

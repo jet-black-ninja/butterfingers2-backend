@@ -15,7 +15,7 @@ export interface ProfileProps {
     soundOnClick: boolean;
     inputWidth: number;
     fontSize: number;
-    caretStyle: number;
+    caretStyle: string;
     theme: string;
   };
   stats: {
@@ -41,7 +41,7 @@ const StatsAverageSchemaType = {
 };
 const ProfileSchema = new Schema({
   customize: {
-    caretStyle: Number,
+    caretStyle: String,
     inputWidth: Number,
     fontSize: Number,
     liveAccuracy: Boolean,
