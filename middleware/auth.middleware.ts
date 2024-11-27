@@ -20,9 +20,9 @@ export default async function auth(
       throw new UnauthorizedError("No authentication token found");
     }
 
-    if (!token.platform || !token.value) {
-      throw new UnauthorizedError("Invalid token format");
-    }
+    // if (!token.platform || !token.value) {
+    //   throw new UnauthorizedError("Invalid token format");
+    // }
 
     if (token.platform === "Google") {
       await handleGoogleAuth(token, req);
