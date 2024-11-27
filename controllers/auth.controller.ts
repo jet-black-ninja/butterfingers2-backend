@@ -12,7 +12,7 @@ import PropertyMissingError from "../errors/PropertyMissingError";
 import InternalServerError from "../errors/InternalServerError";
 
 const frontendUrl =
-  process.env.NODE_ENV === "developments" || !process.env.FRONTEND_URL
+  process.env.NODE_ENV === "development" || !process.env.FRONTEND_URL
     ? "http://localhost:5173"
     : process.env.FRONTEND_URL;
 
@@ -60,6 +60,7 @@ export async function Login(
     const jwtSecret = process.env.JWT_SECRET!;
     const token = jwt.sign({ userId: user._id }, jwtSecret);
     res.cookie("token", JSON.stringify({ value: token }), {
+      maxAge: 360000000,
       secure: true,
       httpOnly: true,
       sameSite: "strict",
