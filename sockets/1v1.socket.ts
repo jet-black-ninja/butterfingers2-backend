@@ -2,6 +2,14 @@ import { Server } from "socket.io";
 import { fetchQuote, generateCode, startCountdown } from "./helper";
 import { quoteLengthType, OneVersusOneStateType } from "./types";
 
+const clientRooms: { [key: string]: string } = {};
+const roomState: { [key: string]: OneVersusOneStateType } = {};
+
+function logRoomState(message: string) {
+  console.log(message);
+  console.log("Current room state:", JSON.stringify(roomState, null, 2));
+  console.log("Current client rooms:", JSON.stringify(clientRooms, null, 2));
+}
 export function startSocketOneVersusOne(server: any) {
   const io = new Server(server, {
     cors: {
@@ -11,48 +19,81 @@ export function startSocketOneVersusOne(server: any) {
     },
   });
 
-  const clientRooms: { [key: string]: string } = {};
-  const roomState: { [key: string]: OneVersusOneStateType } = {};
   const io1v1 = io.of("/1v1");
   io1v1.on("connection", (socket) => {
     console.log("New Connection", socket.id);
 
     socket.on("create-room", (quoteLength: quoteLengthType) => {
-    
-      const roomCode = generateCode(6);
+      let roomCode: string;
+      do {
+        roomCode = generateCode(6);
+      } while (roomState.hasOwnProperty(roomCode));
+
       clientRooms[socket.id] = roomCode;
+      logRoomState(`Room created: ${roomCode}`);
 
       roomState[roomCode] = {
         players: { player1: { id: socket.id, wordIndex: 0, charIndex: 0 } },
         quoteLength: quoteLength,
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        isReady: false,
       };
+      logRoomState("Room state after creation");
 
       socket.join(roomCode);
       socket.emit("has-joined-room", roomCode);
       io1v1.to(roomCode).emit("room-state", roomState[roomCode]);
+
+      setTimeout(() => {
+        if (roomState[roomCode]) {
+          roomState[roomCode].isReady = true;
+          logRoomState("Room state after delay");
+          socket.emit("room-created", roomCode);
+        } else {
+          console.error("Room state was cleared unexpectedly");
+          logRoomState("Room state cleared unexpectedly");
+        }
+      }, 100);
     });
 
     socket.on("join-room", (roomCode: string) => {
+      console.log("Attempting to join room:", roomCode);
+      console.log("Room code type:", typeof roomCode);
+      console.log("Room code length:", roomCode.length);
+      console.log("Current room state keys:", Object.keys(roomState));
+
       if (!roomState.hasOwnProperty(roomCode)) {
-        socket.emit("join-room-error");
+        socket.emit("join-room-error", "Room does not exist");
         return;
       }
+
+      if (roomState[roomCode].players.player2) {
+        socket.emit("join-room-error", "Room is full");
+        return;
+      }
+
       clientRooms[socket.id] = roomCode;
       roomState[roomCode].players.player2 = {
         id: socket.id,
         wordIndex: 0,
         charIndex: 0,
       };
+      roomState[roomCode].lastActivity = Date.now(); // Update last activity
+
       socket.join(roomCode);
       socket.emit("has-joined-room", roomCode);
+
+      // Fetch quote and start countdown only when player2 joins
       fetchQuote(roomState[roomCode].quoteLength)
         .then((quote: string) => {
           roomState[roomCode].testText = quote;
-          io1v1.to(roomCode).emit("room-state", quote);
+          io1v1.to(roomCode).emit("test-text", quote);
         })
         .then(() => {
           startCountdown(roomCode, io1v1);
         });
+
       io1v1.to(roomCode).emit("room-state", roomState[roomCode]);
     });
 
@@ -149,6 +190,7 @@ export function startSocketOneVersusOne(server: any) {
     });
 
     const handleRoomDisconnect = () => {
+      console.log("room disconnect triggered");
       const roomCode = clientRooms[socket.id];
       if (!roomCode || !roomState[roomCode]) {
         return;
@@ -175,5 +217,19 @@ export function startSocketOneVersusOne(server: any) {
       console.log("Disconnected", socket.id);
       handleRoomDisconnect();
     });
+
+    function cleanupRooms() {
+      const now = Date.now();
+      for (const [roomCode, room] of Object.entries(roomState)) {
+        if (now - room.lastActivity! > 3600000) {
+          // 1 hour
+          delete roomState[roomCode];
+          console.log(`Cleaned up inactive room: ${roomCode}`);
+        }
+      }
+    }
+
+    // Call this function periodically, e.g., every 15 minutes
+    setInterval(cleanupRooms, 900000);
   });
 }

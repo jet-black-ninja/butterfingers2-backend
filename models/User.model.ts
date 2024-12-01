@@ -47,7 +47,7 @@ const userSchema = new Schema({
 });
 
 userSchema.pre("save", async function (next) {
-  const thisObj = this as UserInterface;
+  const thisObj = this as unknown as UserInterface;
   if (thisObj.isModified("password")) {
     try {
       const salt = await bcrypt.genSalt(10);

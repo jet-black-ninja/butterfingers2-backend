@@ -15,7 +15,7 @@ export function generateCode(length: number) {
 export async function fetchQuote(length: quoteLengthType) {
   const res = await axios
     .get(
-      `https://api.quotable.io/random${
+      `https://quoteslate.vercel.app/api/quotes/random${
         length === "short"
           ? "?maxLength=100"
           : length === "medium"
@@ -26,7 +26,7 @@ export async function fetchQuote(length: quoteLengthType) {
       }`
     )
     .then((res: any) => {
-      return res.data.content.replace(/-/g, "-").replace(/…/g, "...");
+      return res.data.quote;
     });
   return res;
 }

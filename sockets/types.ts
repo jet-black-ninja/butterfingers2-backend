@@ -20,6 +20,9 @@ export type OneVersusOneStateType = {
   };
   quoteLength: quoteLengthType;
   testText?: string;
+  createdAt?: number;
+  lastActivity?: number;
+  isReady?: boolean;
 };
 
 export type quoteLengthType = "short" | "medium" | "long" | "all";
