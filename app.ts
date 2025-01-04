@@ -17,12 +17,12 @@ initializeMongoDb();
 const corsOptions = {
   origin: function (
     origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean) => void
+    callback: (err: Error | null, allow?: any) => void
   ) {
     if (!origin || process.env.CORS_ACCESS?.split(",").indexOf(origin) !== -1) {
-      callback(null, true);
+      callback(null, { origin: true });
     } else {
-      callback(new Error("Not Allowed by cors"));
+      callback(new Error("Not Allowed by cors"), { origin: false });
     }
   },
   methods: ["GET", "POST", "DELETE", "PUT"],

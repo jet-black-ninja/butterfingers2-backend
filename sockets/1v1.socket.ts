@@ -13,8 +13,7 @@ function logRoomState(message: string) {
 export function startSocketOneVersusOne(server: any) {
   const io = new Server(server, {
     cors: {
-      origin:
-        process.env.NODE_ENV === "development" ? "http://localhost:5173" : "",
+      origin: "https://butterfingers.vercel.app",
       methods: ["GET", "POST"],
     },
   });
